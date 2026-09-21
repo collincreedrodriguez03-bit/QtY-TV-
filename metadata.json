@@ -1,0 +1,6 @@
+{
+  "name": "QtY TV",
+  "description": "Quantitative Telemetry BTC prediction prototype: Phase 1 Trend Engine with authentic data and temporal integrity",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
