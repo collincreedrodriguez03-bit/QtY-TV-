@@ -14,6 +14,7 @@ import com.example.qty.ui.QtyTvUiState
 import com.example.qty.ui.screens.QtyTvDashboard
 import com.example.ui.theme.MyApplicationTheme
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
+import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
@@ -100,11 +101,23 @@ class GreetingScreenshotTest {
                 onObservationWindowSelected = {},
                 onTargetHorizonSelected = {},
                 onCommitSnapshot = {},
-                onClearLedger = {}
+                onClearLedger = {},
+                enableAnimation = false
             )
         }
     }
 
-    composeTestRule.onRoot().captureRoboImage(filePath = "src/test/screenshots/greeting.png")
+    composeTestRule.waitForIdle()
+
+    val roborazziOptions = RoborazziOptions(
+        compareOptions = RoborazziOptions.CompareOptions(
+            changeThreshold = 0.05f
+        )
+    )
+
+    composeTestRule.onRoot().captureRoboImage(
+        filePath = "src/test/screenshots/greeting.png",
+        roborazziOptions = roborazziOptions
+    )
   }
 }

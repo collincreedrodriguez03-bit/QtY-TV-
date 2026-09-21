@@ -42,17 +42,20 @@ import androidx.compose.ui.unit.sp
 import com.example.qty.data.integrity.IntegrityState
 import com.example.qty.pricedynamics.trend.TrendDirection
 import com.example.qty.ui.QtyTvUiState
+import com.example.qty.ui.components.CombinedPrototypeEvidenceCard
 import com.example.qty.ui.components.EvaluationLedgerCard
+import com.example.qty.ui.components.InfiniteMarketView
 import com.example.qty.ui.components.TelemetryHeaderCard
 import com.example.qty.ui.components.TemporalControlsCard
-import com.example.qty.ui.components.TrendCanvas
-import com.example.qty.ui.components.TrendEngineMetricsCard
+import com.example.qty.ui.components.TrendEngineCard
+import com.example.qty.ui.components.VolatilityEngineCard
 import com.example.ui.theme.TelemetryAmber
 import com.example.ui.theme.TelemetryCardBorder
 import com.example.ui.theme.TelemetryCyan
 import com.example.ui.theme.TelemetryCyanDim
 import com.example.ui.theme.TelemetryGreen
 import com.example.ui.theme.TelemetryObsidian
+import com.example.ui.theme.TelemetryPurple
 import com.example.ui.theme.TelemetryRed
 import com.example.ui.theme.TelemetrySurface
 import com.example.ui.theme.TelemetrySurfaceVariant
@@ -69,7 +72,8 @@ fun QtyTvDashboard(
     onTargetHorizonSelected: (Int) -> Unit,
     onCommitSnapshot: () -> Unit,
     onClearLedger: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enableAnimation: Boolean = true
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize().testTag("qty_tv_dashboard"),
@@ -83,7 +87,7 @@ fun QtyTvDashboard(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // 1. App Bar / Header with Prototype status
+            // 1. App Bar / Header: Strict QtY TV Brand (Trend + Volatility)
             item {
                 DashboardHeader(
                     isStreamActive = uiState.isStreamActive,
@@ -107,7 +111,7 @@ fun QtyTvDashboard(
                 }
             }
 
-            // 3. Telemetry Header Card (Price, Source, Latency, Integrity)
+            // 3. Telemetry Header Card (BTC State: Authentic price, source, exchange clock, latency)
             item {
                 TelemetryHeaderCard(
                     tick = uiState.latestTick,
@@ -115,7 +119,7 @@ fun QtyTvDashboard(
                 )
             }
 
-            // 4. Authentic Price & OLS Regression Trend Canvas
+            // 4. Infinite Market View / Orbital Mathematical Visualization (Metaphor for continuous state space)
             item {
                 Column {
                     Row(
@@ -124,35 +128,54 @@ fun QtyTvDashboard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "AUTHENTIC BTC TELEMETRY & OLS REGRESSION",
+                            text = "CONTINUOUS STATE SPACE // ORBITAL VIEW",
                             color = TextSecondary,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.SemiBold,
                             fontFamily = FontFamily.Monospace
                         )
                         Text(
-                            text = "LOOKBACK: ${uiState.temporalState.observationWindowSeconds}s (N=${uiState.recentPriceSeries.size})",
+                            text = "HORIZON: ${uiState.temporalState.observationWindowSeconds}s (N=${uiState.recentPriceSeries.size})",
                             color = TelemetryCyan,
                             fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
-                    TrendCanvas(
+                    InfiniteMarketView(
                         points = uiState.recentPriceSeries,
                         slopePerSecond = uiState.trendOutput?.evidence?.slopePerSecond ?: 0.0,
                         rSquared = uiState.trendOutput?.evidence?.rSquared ?: 0.0,
-                        direction = uiState.trendOutput?.verdict?.direction ?: TrendDirection.FAIL_CLOSED
+                        direction = uiState.trendOutput?.verdict?.direction ?: TrendDirection.FAIL_CLOSED,
+                        enableAnimation = enableAnimation
                     )
                 }
             }
 
-            // 5. Trend Experimental Engine Card (Measurements, R^2, EMA, Judge Verdict)
+            // 5. ENGINE 1: TREND ENGINE CARD (Independent Trend Evidence)
             item {
-                TrendEngineMetricsCard(output = uiState.trendOutput)
+                TrendEngineCard(
+                    output = uiState.trendOutput,
+                    temporalState = uiState.temporalState
+                )
             }
 
-            // 6. Temporal State & Horizon Configuration
+            // 6. ENGINE 2: VOLATILITY ENGINE CARD (Independent Volatility Evidence - Phase 1 unengaged)
+            item {
+                VolatilityEngineCard(
+                    temporalState = uiState.temporalState
+                )
+            }
+
+            // 7. Flow Pipeline Card: BTC State → Trend → Volatility → Combined Prototype Evidence → Prediction/Outcome
+            item {
+                CombinedPrototypeEvidenceCard(
+                    output = uiState.trendOutput,
+                    temporalState = uiState.temporalState
+                )
+            }
+
+            // 8. Temporal Horizon Controls (W Lookback and H Horizon)
             item {
                 TemporalControlsCard(
                     temporalState = uiState.temporalState,
@@ -161,7 +184,7 @@ fun QtyTvDashboard(
                 )
             }
 
-            // 7. Evaluation Ledger Card (Sample depth, Tier badge, Audit stream)
+            // 9. Evaluation Ledger Card (Sample depth, Tier badge, Audit stream)
             item {
                 EvaluationLedgerCard(
                     totalCount = uiState.totalLedgerCount,
@@ -172,7 +195,7 @@ fun QtyTvDashboard(
                 )
             }
 
-            // 8. Master QtY Funnel Footer
+            // 10. Minimalist QtY TV Prototype Separation Footer
             item {
                 QtYArchitectureFooter()
             }
@@ -211,7 +234,7 @@ private fun DashboardHeader(
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = "PROTOTYPE 1: PHASE 1",
+                        text = "TREND + VOLATILITY",
                         color = TelemetryCyan,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
@@ -220,9 +243,10 @@ private fun DashboardHeader(
                 }
             }
             Text(
-                text = "Quantitative Telemetry — Trend Engine",
+                text = "Two engines exploring an unbounded quantitative market space",
                 color = TextMuted,
-                fontSize = 11.sp
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace
             )
         }
 
@@ -378,7 +402,7 @@ private fun QtYArchitectureFooter() {
     ) {
         Column {
             Text(
-                text = "MASTER QtY ARCHITECTURE FUNNEL",
+                text = "QtY TV // PROTOTYPE SEPARATION",
                 color = TextMuted,
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
@@ -386,7 +410,7 @@ private fun QtYArchitectureFooter() {
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Authentic BTC Data → Integrity Check → Temporal State → Trend Specialist Equations → Trend Evidence → Trend Judge Verdict → Evaluation Ledger",
+                text = "QtY TV isolates TWO engines only: Trend + Volatility exploring an unbounded quantitative market space. The deeper Engine Room (transformations, full algebraic pipeline, formal validation funnel) remains architecturally housed in the primary QtY system.",
                 color = TextSecondary,
                 fontSize = 9.sp,
                 fontFamily = FontFamily.Monospace,
@@ -394,7 +418,7 @@ private fun QtYArchitectureFooter() {
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Phase 1: Trend Engine | Phase 2: Volatility Engine | Phase 3: Backtesting & Prediction | Phase 4: Formal Validation",
+                text = "BTC State → Trend [Active Phase 1] → Volatility [Pending Phase 2] → Combined Evidence → Outcome",
                 color = TelemetryCyanDim,
                 fontSize = 8.sp,
                 fontFamily = FontFamily.Monospace
