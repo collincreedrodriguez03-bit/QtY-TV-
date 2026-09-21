@@ -5,6 +5,13 @@ import kotlin.math.sqrt
 
 /**
  * Mathematical calculations for Volatility and Returns dispersion.
+ *
+ * AUDIT & ASSUMPTIONS NOTE:
+ * - Realized volatility annualization scaling factor (sqrt(31,536,000)) assumes 1-second interval observations as an
+ *   experimental normalization baseline. Irregularly sampled exchange trades are mapped to this baseline for comparative scaling;
+ *   this is an experimental parameterization rather than a closed-form statistical absolute.
+ * - Parkinson Volatility and ATR Percent calculations operate on consecutive trade observations as defined experimental proxies
+ *   rather than formal OHLC candlestick bars (which would require artificial bar aggregation). No OHLC values are fabricated.
  */
 object VolatilityMath {
 
@@ -44,10 +51,10 @@ object VolatilityMath {
         val variance = sumSquaredDev / (logReturns.size.coerceAtLeast(1))
         val stdDev = sqrt(variance)
 
-        // Annualized realized volatility assuming 1 sample per second (~31.5M seconds per year)
+        // Experimental normalized annualization baseline (1-second frequency assumption: 31,536,000 seconds/year)
         val annualizedVol = stdDev * sqrt(31_536_000.0)
 
-        // Parkinson volatility (range-based proxy using consecutive high/low estimation)
+        // Experimental range proxy (Parkinson volatility proxy on consecutive trade observation pairs without fabricating OHLC bars)
         var sumLogRatioSq = 0.0
         for (i in 1 until n) {
             val high = maxOf(prices[i], prices[i-1])
@@ -59,7 +66,7 @@ object VolatilityMath {
         }
         val parkinson = sqrt((1.0 / (4.0 * n * ln(2.0))) * sumLogRatioSq) * sqrt(31_536_000.0)
 
-        // Average True Range (ATR) percent approximation
+        // Experimental ATR percent proxy on consecutive trade price deltas
         var sumRangePct = 0.0
         for (i in 1 until n) {
             val pPrev = prices[i-1]
