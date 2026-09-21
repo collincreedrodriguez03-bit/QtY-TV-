@@ -90,4 +90,126 @@ class ExampleUnitTest {
     assertEquals(0.0, output.verdict.judgeConfidence, 0.0001)
     assertTrue(output.verdict.isFailClosed)
   }
+
+  @Test
+  fun testTrendEngineUpwardConsensus() {
+    val engine = TrendEngine()
+    val window = TimeSeriesWindow()
+    val baseTime = 1_000_000L
+    // Add 15 ticks steadily climbing by 10.0 every second
+    for (i in 0 until 15) {
+      window.addTick(
+          MarketTick(
+              timestampMs = baseTime + i * 1_000L,
+              price = 60_000.0 + i * 10.0,
+              volume = 1.5,
+              sourceIdentity = "BINANCE_SPOT_BTCUSDT",
+              sequenceId = (i + 1).toLong()
+          )
+      )
+    }
+
+    val temporal = TemporalState(
+        currentTimestampMs = baseTime + 14 * 1_000L,
+        observationWindowSeconds = 30
+    )
+
+    val output = engine.process(
+        timeSeries = window,
+        temporalState = temporal,
+        integrityState = IntegrityState.Nominal
+    )
+
+    assertEquals(TrendDirection.UP, output.verdict.direction)
+    assertTrue("Judge confidence should be positive for clear upward trend", output.verdict.judgeConfidence > 0.3)
+    assertTrue("Slope should be positive", output.evidence.slopePerSecond > 0.0)
+    assertTrue("Normalized slope bps should be positive", output.evidence.normalizedSlopeBps > 0.0)
+    assertEquals(1.0, output.evidence.rSquared, 0.01) // Strict linear fit
+    assertFalse(output.verdict.isFailClosed)
+    assertNull(output.evidence.failClosedReason)
+  }
+
+  @Test
+  fun testTrendEngineDownwardConsensus() {
+    val engine = TrendEngine()
+    val window = TimeSeriesWindow()
+    val baseTime = 1_000_000L
+    // Add 15 ticks falling by 15.0 every second
+    for (i in 0 until 15) {
+      window.addTick(
+          MarketTick(
+              timestampMs = baseTime + i * 1_000L,
+              price = 60_000.0 - i * 15.0,
+              volume = 2.0,
+              sourceIdentity = "BINANCE_SPOT_BTCUSDT",
+              sequenceId = (i + 1).toLong()
+          )
+      )
+    }
+
+    val temporal = TemporalState(
+        currentTimestampMs = baseTime + 14 * 1_000L,
+        observationWindowSeconds = 30
+    )
+
+    val output = engine.process(
+        timeSeries = window,
+        temporalState = temporal,
+        integrityState = IntegrityState.Nominal
+    )
+
+    assertEquals(TrendDirection.DOWN, output.verdict.direction)
+    assertTrue("Judge confidence should be positive for clear downward trend", output.verdict.judgeConfidence > 0.3)
+    assertTrue("Slope should be negative", output.evidence.slopePerSecond < 0.0)
+    assertFalse(output.verdict.isFailClosed)
+  }
+
+  @Test
+  fun testTrendEngineObservableEvidenceAuditability() {
+    val engine = TrendEngine()
+    val window = TimeSeriesWindow()
+    val baseTime = 1_000_000L
+    for (i in 0 until 20) {
+      window.addTick(
+          MarketTick(
+              timestampMs = baseTime + i * 1_000L,
+              price = 65_000.0 + (i % 3) * 5.0,
+              volume = 0.8,
+              sourceIdentity = "BINANCE_SPOT_BTCUSDT",
+              sequenceId = (i + 1).toLong()
+          )
+      )
+    }
+
+    val temporal = TemporalState(
+        currentTimestampMs = baseTime + 19 * 1_000L,
+        observationWindowSeconds = 30
+    )
+
+    val output = engine.process(
+        timeSeries = window,
+        temporalState = temporal,
+        integrityState = IntegrityState.Nominal
+    )
+
+    val ev = output.evidence
+    // Verify observable evidence is fully deterministic, finite, and audited
+    assertFalse(ev.slopePerSecond.isNaN())
+    assertFalse(ev.normalizedSlopeBps.isNaN())
+    assertFalse(ev.rSquared.isNaN())
+    assertFalse(ev.tStatistic.isNaN())
+    assertEquals("BINANCE_SPOT_BTCUSDT", ev.sourceIdentity)
+    assertEquals(20, ev.sampleCount)
+    assertNotNull(ev.channelPosition)
+    assertTrue(ev.channelPosition!! in 0.0..1.0)
+  }
+
+  @Test
+  fun testQtyTvPackageIdentityBridge() {
+    // Verify TrendEngine is identifiable and instantiable via com.qty.tv package hierarchy
+    val engineFromQtyTv: com.qty.tv.trend.TrendEngine = com.qty.tv.trend.TrendEngine()
+    assertNotNull(engineFromQtyTv)
+    val engineFromPriceDynamics: com.qty.tv.pricedynamics.trend.TrendEngine = com.qty.tv.pricedynamics.trend.TrendEngine()
+    assertNotNull(engineFromPriceDynamics)
+  }
 }
