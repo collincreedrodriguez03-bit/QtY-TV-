@@ -20,8 +20,9 @@ class DataIntegrityVerifier(
         if (tick.price <= 0.0 || tick.price.isNaN() || tick.price.isInfinite()) {
             return IntegrityState.ValueViolation("Illegal non-positive or NaN price: ${tick.price}")
         }
-        if (tick.volume < 0.0 || tick.volume.isNaN() || tick.volume.isInfinite()) {
-            return IntegrityState.ValueViolation("Illegal negative or NaN volume: ${tick.volume}")
+        val vol = tick.volume
+        if (vol != null && (vol < 0.0 || vol.isNaN() || vol.isInfinite())) {
+            return IntegrityState.ValueViolation("Illegal negative or NaN volume: $vol")
         }
         if (tick.sourceIdentity.isBlank()) {
             return IntegrityState.ValueViolation("Missing source identity")

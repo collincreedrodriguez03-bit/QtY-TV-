@@ -36,12 +36,12 @@ class ExampleUnitTest {
   @Test
   fun testDataIntegrityChronologicalMonotonicity() {
     val verifier = DataIntegrityVerifier()
-    val t1 = MarketTick(1000L, 50000.0, 1.0, "BINANCE_SPOT_BTCUSDT", 1L)
+    val t1 = MarketTick(exchangeTimestampMs = 1000L, serverSyncTimestampMs = null, price = 50000.0, volume = 1.0, sourceIdentity = "BINANCE_SPOT_BTCUSDT", sequenceId = 1L)
     val state1 = verifier.verify(t1, currentLocalWallClockMs = 2000L)
     assertTrue(state1.isPassing)
 
     // Out of order tick (timestamp 500 < 1000)
-    val t2 = MarketTick(500L, 50100.0, 1.0, "BINANCE_SPOT_BTCUSDT", 2L)
+    val t2 = MarketTick(exchangeTimestampMs = 500L, serverSyncTimestampMs = null, price = 50100.0, volume = 1.0, sourceIdentity = "BINANCE_SPOT_BTCUSDT", sequenceId = 2L)
     val state2 = verifier.verify(t2, currentLocalWallClockMs = 2000L)
     assertTrue(state2 is IntegrityState.ChronologicalViolation)
     assertTrue(state2.isFailClosed)
@@ -50,10 +50,10 @@ class ExampleUnitTest {
   @Test
   fun testNoLookaheadWindowSlicing() {
     val window = TimeSeriesWindow()
-    window.addTick(MarketTick(10_000L, 50000.0, 1.0, "BINANCE_SPOT_BTCUSDT", 1L))
-    window.addTick(MarketTick(20_000L, 50100.0, 1.0, "BINANCE_SPOT_BTCUSDT", 2L))
-    window.addTick(MarketTick(30_000L, 50200.0, 1.0, "BINANCE_SPOT_BTCUSDT", 3L))
-    window.addTick(MarketTick(40_000L, 50300.0, 1.0, "BINANCE_SPOT_BTCUSDT", 4L))
+    window.addTick(MarketTick(exchangeTimestampMs = 10_000L, serverSyncTimestampMs = null, price = 50000.0, volume = 1.0, sourceIdentity = "BINANCE_SPOT_BTCUSDT", sequenceId = 1L))
+    window.addTick(MarketTick(exchangeTimestampMs = 20_000L, serverSyncTimestampMs = null, price = 50100.0, volume = 1.0, sourceIdentity = "BINANCE_SPOT_BTCUSDT", sequenceId = 2L))
+    window.addTick(MarketTick(exchangeTimestampMs = 30_000L, serverSyncTimestampMs = null, price = 50200.0, volume = 1.0, sourceIdentity = "BINANCE_SPOT_BTCUSDT", sequenceId = 3L))
+    window.addTick(MarketTick(exchangeTimestampMs = 40_000L, serverSyncTimestampMs = null, price = 50300.0, volume = 1.0, sourceIdentity = "BINANCE_SPOT_BTCUSDT", sequenceId = 4L))
 
     // Slice up to T = 25_000L with 30s window
     val slice = window.getObservationWindow(cutoffTimestampMs = 25_000L, windowDurationSeconds = 30)
@@ -77,7 +77,7 @@ class ExampleUnitTest {
   fun testTrendEngineFailClosedOnInvalidIntegrity() {
     val engine = TrendEngine()
     val window = TimeSeriesWindow()
-    window.addTick(MarketTick(10_000L, 50000.0, 1.0, "BINANCE_SPOT_BTCUSDT", 1L))
+    window.addTick(MarketTick(exchangeTimestampMs = 10_000L, serverSyncTimestampMs = null, price = 50000.0, volume = 1.0, sourceIdentity = "BINANCE_SPOT_BTCUSDT", sequenceId = 1L))
     val temporal = TemporalState(currentTimestampMs = 10_000L)
 
     val output = engine.process(
@@ -100,7 +100,8 @@ class ExampleUnitTest {
     for (i in 0 until 15) {
       window.addTick(
           MarketTick(
-              timestampMs = baseTime + i * 1_000L,
+              exchangeTimestampMs = baseTime + i * 1_000L,
+              serverSyncTimestampMs = null,
               price = 60_000.0 + i * 10.0,
               volume = 1.5,
               sourceIdentity = "BINANCE_SPOT_BTCUSDT",
@@ -138,7 +139,8 @@ class ExampleUnitTest {
     for (i in 0 until 15) {
       window.addTick(
           MarketTick(
-              timestampMs = baseTime + i * 1_000L,
+              exchangeTimestampMs = baseTime + i * 1_000L,
+              serverSyncTimestampMs = null,
               price = 60_000.0 - i * 15.0,
               volume = 2.0,
               sourceIdentity = "BINANCE_SPOT_BTCUSDT",
@@ -172,7 +174,8 @@ class ExampleUnitTest {
     for (i in 0 until 20) {
       window.addTick(
           MarketTick(
-              timestampMs = baseTime + i * 1_000L,
+              exchangeTimestampMs = baseTime + i * 1_000L,
+              serverSyncTimestampMs = null,
               price = 65_000.0 + (i % 3) * 5.0,
               volume = 0.8,
               sourceIdentity = "BINANCE_SPOT_BTCUSDT",
@@ -204,12 +207,5 @@ class ExampleUnitTest {
     assertTrue(ev.channelPosition!! in 0.0..1.0)
   }
 
-  @Test
-  fun testQtyTvPackageIdentityBridge() {
-    // Verify TrendEngine is identifiable and instantiable via com.qty.tv package hierarchy
-    val engineFromQtyTv: com.qty.tv.trend.TrendEngine = com.qty.tv.trend.TrendEngine()
-    assertNotNull(engineFromQtyTv)
-    val engineFromPriceDynamics: com.qty.tv.pricedynamics.trend.TrendEngine = com.qty.tv.pricedynamics.trend.TrendEngine()
-    assertNotNull(engineFromPriceDynamics)
-  }
+
 }

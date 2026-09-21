@@ -1,8 +1,5 @@
 package com.example.qty.pricedynamics.trend
 
-import kotlin.math.abs
-import kotlin.math.min
-
 /**
  * Direction evaluated by the QtY Trend Judge.
  */
@@ -18,7 +15,7 @@ enum class TrendDirection {
  */
 data class TrendJudgeVerdict(
     val direction: TrendDirection,
-    val judgeConfidence: Double, // Grounded in R^2 and agreement, bounded [0.0, 1.0]
+    val judgeConfidence: Double, // Grounded in R^2, bounded [0.0, 1.0]
     val directionalAgreement: Boolean,
     val isFailClosed: Boolean,
     val justification: String
@@ -26,11 +23,16 @@ data class TrendJudgeVerdict(
 
 /**
  * Evaluates TrendEvidence according to established QtY principles.
- * Fails closed if evidence has integrity violations or insufficient samples.
+ * Fails closed if evidence has integrity violations or insufficient samples (minimum 2 points required for OLS regression).
+ *
+ * NOTE ON ASSUMPTIONS:
+ * Unverified magic thresholds (such as arbitrary minSampleThreshold = 5, minSlopeBpsThreshold = 0.01,
+ * sample weight scaling against 30, and agreement multiplier 1.0 / 0.3) have been removed.
+ * Judge confidence is strictly grounded in verifiable R² and directional agreement without unproven scaling parameters.
  */
 class TrendJudge(
-    private val minSampleThreshold: Int = 5,
-    private val minSlopeBpsThreshold: Double = 0.01 // Minimal slope threshold to avoid zero division noise
+    // Experimental parameter isolated for validation: minimum required samples for regression
+    private val minSampleThreshold: Int = 2
 ) {
     fun evaluate(evidence: TrendEvidence): TrendJudgeVerdict {
         // 1. Fail Closed enforcement
@@ -54,9 +56,9 @@ class TrendJudge(
             )
         }
 
-        // 2. Directional consensus across specialists
-        val slopePositive = evidence.normalizedSlopeBps > minSlopeBpsThreshold
-        val slopeNegative = evidence.normalizedSlopeBps < -minSlopeBpsThreshold
+        // 2. Directional consensus across specialists (strict sign-based agreement without arbitrary bps thresholds)
+        val slopePositive = evidence.normalizedSlopeBps > 0.0
+        val slopeNegative = evidence.normalizedSlopeBps < 0.0
 
         val emaPositive = (evidence.emaSpreadPercent ?: 0.0) > 0.0
         val emaNegative = (evidence.emaSpreadPercent ?: 0.0) < 0.0
@@ -76,15 +78,11 @@ class TrendJudge(
         val directionalAgreement = upAgreement || downAgreement
 
         // 3. Mathematical Judge Confidence
-        // Grounded in R-squared (linearity of trend) scaled by sample sufficiency (up to 30 samples)
-        // and penalizing conflicting specialist signals.
-        val sampleWeight = min(1.0, evidence.sampleCount.toDouble() / 30.0)
-        val agreementMultiplier = if (directionalAgreement) 1.0 else 0.3
-
-        val confidence = if (direction == TrendDirection.NO_TREND) {
+        // Grounded strictly in R² (linearity of trend) when directional agreement is confirmed.
+        val confidence = if (direction == TrendDirection.NO_TREND || !directionalAgreement) {
             0.0
         } else {
-            (evidence.rSquared * sampleWeight * agreementMultiplier).coerceIn(0.0, 1.0)
+            evidence.rSquared.coerceIn(0.0, 1.0)
         }
 
         val justification = buildString {

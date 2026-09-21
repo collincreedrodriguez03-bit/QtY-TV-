@@ -34,7 +34,8 @@ class GreetingScreenshotTest {
   fun dashboard_screenshot() {
     val sampleTemporal = TemporalState(currentTimestampMs = 1742540000000L, observationWindowSeconds = 60, targetHorizonSeconds = 30)
     val sampleTick = MarketTick(
-        timestampMs = 1742540000000L,
+        exchangeTimestampMs = 1742540000000L,
+        serverSyncTimestampMs = null,
         price = 98450.25,
         volume = 1.45,
         sourceIdentity = "BINANCE_SPOT_BTCUSDT",

@@ -19,8 +19,9 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * Adheres strictly to QtY Core Rules:
  * - Real API calls only.
- * - Millisecond timestamps from exchange payload or synchronized server time.
- * - No fabricated data. Fail closed upon network failure or invalid response.
+ * - Distinguishes between exchange trade event timestamps, server synchronization timestamps, and local receipt timestamps.
+ * - Volume is supplied authentically from trades; ticker feeds correctly supply null volume rather than fabricated 1.0.
+ * - Fail closed upon network failure or invalid response.
  */
 class AuthenticDataSource(
     private val client: OkHttpClient = OkHttpClient.Builder()
@@ -41,7 +42,7 @@ class AuthenticDataSource(
 
     /**
      * Fetch authentic historical recent trades to bootstrap the chronological window.
-     * Guaranteed chronological ordering from exchange.
+     * Guaranteed chronological ordering from exchange with authentic trade timestamps and volume.
      */
     suspend fun fetchRecentHistoricalTicks(): Result<List<MarketTick>> = withContext(Dispatchers.IO) {
         runCatching {
@@ -67,7 +68,8 @@ class AuthenticDataSource(
 
                     ticks.add(
                         MarketTick(
-                            timestampMs = timeMs,
+                            exchangeTimestampMs = timeMs,
+                            serverSyncTimestampMs = null,
                             price = price,
                             volume = volume,
                             sourceIdentity = SOURCE_BINANCE,
@@ -94,15 +96,15 @@ class AuthenticDataSource(
     }
 
     private fun fetchBinanceTicker(): Result<MarketTick> = runCatching {
-        // First get current server timestamp or local monotonic
+        // Fetch synchronized server time from Binance exchange time endpoint
         val timeRequest = Request.Builder().url(BINANCE_TIME_URL).build()
         val serverTime = client.newCall(timeRequest).execute().use { res ->
             if (res.isSuccessful) {
                 val b = res.body?.string()
                 if (b != null) JSONObject(b).optLong("serverTime", System.currentTimeMillis())
-                else System.currentTimeMillis()
+                else null
             } else {
-                System.currentTimeMillis()
+                null
             }
         }
 
@@ -120,9 +122,10 @@ class AuthenticDataSource(
             val price = json.getString("price").toDouble()
 
             MarketTick(
-                timestampMs = serverTime,
+                exchangeTimestampMs = null, // Ticker price endpoint provides current price, not an individual trade event timestamp
+                serverSyncTimestampMs = serverTime, // Authenticated via Binance server time sync endpoint
                 price = price,
-                volume = 1.0, // Ticker point volume unit
+                volume = null, // Ticker feed does not supply trade volume; correctly reported as null rather than fabricated 1.0
                 sourceIdentity = SOURCE_BINANCE,
                 sequenceId = sequenceCounter.incrementAndGet()
             )
@@ -144,9 +147,10 @@ class AuthenticDataSource(
             val price = json.getString("amount").toDouble()
 
             MarketTick(
-                timestampMs = System.currentTimeMillis(),
+                exchangeTimestampMs = null, // Coinbase spot API does not supply raw trade event timestamp
+                serverSyncTimestampMs = null, // Coinbase spot API does not provide dedicated clock sync endpoint in this public tier
                 price = price,
-                volume = 1.0,
+                volume = null, // Spot price feed does not supply volume; correctly reported as null
                 sourceIdentity = SOURCE_COINBASE,
                 sequenceId = sequenceCounter.incrementAndGet()
             )
