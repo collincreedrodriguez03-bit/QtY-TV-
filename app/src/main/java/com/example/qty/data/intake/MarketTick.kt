@@ -25,12 +25,13 @@ data class MarketTick(
     }
 
     /**
-     * The primary authoritative timestamp for chronological processing and regression analysis.
-     * Prefers exchange event timestamp, falling back to server synchronization timestamp.
-     * Fails closed (returns null) if no authentic timestamp is available.
+     * The primary authoritative market-event timestamp for chronological processing and regression analysis.
+     * STRICT RULE: Must be an authentic exchange trade event timestamp (`exchangeTimestampMs`).
+     * Server synchronization time or local receipt time MUST NOT be treated as market-event time.
+     * Fails closed (throws IllegalStateException or returns null) if no authentic exchange event timestamp is present.
      */
     val timestampMs: Long
-        get() = exchangeTimestampMs ?: serverSyncTimestampMs ?: throw IllegalStateException("No authentic timestamp source available for tick $sequenceId")
+        get() = exchangeTimestampMs ?: throw IllegalStateException("FAIL CLOSED: Missing authentic exchange trade event timestamp for tick $sequenceId (server/local sync time cannot masquerade as market event time)")
 
     val hasAuthenticExchangeTimestamp: Boolean
         get() = exchangeTimestampMs != null

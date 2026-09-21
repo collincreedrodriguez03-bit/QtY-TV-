@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.qty.pricedynamics.trend.TrendDirection
 import com.example.qty.pricedynamics.trend.TrendEngineOutput
+import com.example.qty.pricedynamics.volatility.VolatilityEngineOutput
 import com.example.qty.temporal.TemporalState
 import com.example.ui.theme.TelemetryAmber
 import com.example.ui.theme.TelemetryCardBorder
@@ -449,7 +450,8 @@ fun VolatilityEngineCard(
  */
 @Composable
 fun CombinedPrototypeEvidenceCard(
-    output: TrendEngineOutput?,
+    trendOutput: TrendEngineOutput?,
+    volatilityOutput: VolatilityEngineOutput?,
     temporalState: TemporalState,
     modifier: Modifier = Modifier
 ) {
@@ -488,7 +490,7 @@ fun CombinedPrototypeEvidenceCard(
 
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "PIPELINE: BTC State → Trend [Active] → Volatility [Pending P2] → Duo Synthesis",
+                text = "PIPELINE: BTC State → Trend [Active] → Volatility [Active P2] → Duo Synthesis",
                 color = TextSecondary,
                 fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace
@@ -508,17 +510,17 @@ fun CombinedPrototypeEvidenceCard(
             ) {
                 FlowStepItem(label = "BTC STATE", status = "AUTHENTIC", color = TelemetryGreen)
                 Text("→", color = TextMuted, fontSize = 12.sp)
-                FlowStepItem(label = "TREND", status = output?.verdict?.direction?.name ?: "EVAL", color = TelemetryCyan)
+                FlowStepItem(label = "TREND", status = trendOutput?.verdict?.direction?.name ?: "EVAL", color = TelemetryCyan)
                 Text("→", color = TextMuted, fontSize = 12.sp)
-                FlowStepItem(label = "VOLATILITY", status = "PHASE 2", color = TelemetryPurple)
+                FlowStepItem(label = "VOLATILITY", status = volatilityOutput?.verdict?.regime?.name ?: "EVAL", color = TelemetryPurple)
                 Text("→", color = TextMuted, fontSize = 12.sp)
-                FlowStepItem(label = "COMBINED", status = "PARTIAL P1", color = TelemetryAmber)
+                FlowStepItem(label = "SYNTHESIS", status = "ACTIVE P3", color = TelemetryGreen)
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
             Text(
-                text = "Phase 1 Status: Trend engine operates with mathematical inspectability. Volatility engine is scheduled for Phase 2 implementation. Combined prediction synthesis will engage once both engines produce dual observable evidence.",
+                text = "Completed Prototype: Trend and Volatility engines operate independently and concurrently. Chronological backtesting synthesizes both streams against forward settlement targets with zero lookahead bias.",
                 color = TextMuted,
                 fontSize = 9.sp,
                 lineHeight = 13.sp

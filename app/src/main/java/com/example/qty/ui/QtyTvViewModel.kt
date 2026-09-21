@@ -10,6 +10,7 @@ import com.example.qty.data.integrity.IntegrityState
 import com.example.qty.ledger.EvaluationLedgerRepository
 import com.example.qty.ledger.EvaluationTier
 import com.example.qty.pricedynamics.trend.TrendEngine
+import com.example.qty.pricedynamics.volatility.VolatilityEngine
 import com.example.qty.temporal.TemporalState
 import com.example.qty.temporal.TimeSeriesWindow
 import kotlinx.coroutines.Job
@@ -37,6 +38,7 @@ class QtyTvViewModel(
     private val integrityVerifier = DataIntegrityVerifier()
     private val timeSeries = TimeSeriesWindow(maxCapacity = 1000)
     private val trendEngine = TrendEngine()
+    private val volatilityEngine = VolatilityEngine()
 
     private val _uiState = MutableStateFlow(QtyTvUiState())
     val uiState: StateFlow<QtyTvUiState> = _uiState.asStateFlow()
@@ -199,12 +201,19 @@ class QtyTvViewModel(
             integrityState = currentState.integrityState
         )
 
+        val volatilityOutput = volatilityEngine.process(
+            timeSeries = timeSeries,
+            temporalState = updatedTemporal,
+            integrityState = currentState.integrityState
+        )
+
         val recentPoints = output.windowTicks
 
         _uiState.update {
             it.copy(
                 temporalState = updatedTemporal,
                 trendOutput = output,
+                volatilityOutput = volatilityOutput,
                 recentPriceSeries = recentPoints
             )
         }

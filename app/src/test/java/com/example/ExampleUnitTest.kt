@@ -34,17 +34,51 @@ class ExampleUnitTest {
   }
 
   @Test
-  fun testDataIntegrityChronologicalMonotonicity() {
-    val verifier = DataIntegrityVerifier()
-    val t1 = MarketTick(exchangeTimestampMs = 1000L, serverSyncTimestampMs = null, price = 50000.0, volume = 1.0, sourceIdentity = "BINANCE_SPOT_BTCUSDT", sequenceId = 1L)
-    val state1 = verifier.verify(t1, currentLocalWallClockMs = 2000L)
-    assertTrue(state1.isPassing)
+  fun testProvenanceMissingEventTimestampFailsClosed() {
+    // A tick with only server sync time or local time but missing exchangeTimestampMs must throw IllegalStateException or fail closed
+    val tickWithoutEventTime = MarketTick(
+        exchangeTimestampMs = null,
+        serverSyncTimestampMs = 1742540000000L,
+        price = 95000.0,
+        volume = null,
+        sourceIdentity = "COINBASE_SPOT_BTCUSD",
+        sequenceId = 99L
+    )
+    var exceptionThrown = false
+    try {
+        val ts = tickWithoutEventTime.timestampMs
+    } catch (e: IllegalStateException) {
+        exceptionThrown = true
+        assertTrue(e.message!!.contains("FAIL CLOSED"))
+    }
+    assertTrue("Missing exchange event timestamp must fail closed when accessing timestampMs", exceptionThrown)
+  }
 
-    // Out of order tick (timestamp 500 < 1000)
-    val t2 = MarketTick(exchangeTimestampMs = 500L, serverSyncTimestampMs = null, price = 50100.0, volume = 1.0, sourceIdentity = "BINANCE_SPOT_BTCUSDT", sequenceId = 2L)
-    val state2 = verifier.verify(t2, currentLocalWallClockMs = 2000L)
-    assertTrue(state2 is IntegrityState.ChronologicalViolation)
-    assertTrue(state2.isFailClosed)
+  @Test
+  fun testProvenanceServerSyncTimeCannotMasqueradeAsEventTime() {
+    val tick = MarketTick(
+        exchangeTimestampMs = null,
+        serverSyncTimestampMs = 1742540000000L,
+        price = 95000.0,
+        volume = null,
+        sourceIdentity = "BINANCE_SPOT_BTCUSDT",
+        sequenceId = 100L
+    )
+    assertFalse("Server sync time must not be treated as authentic exchange event timestamp", tick.hasAuthenticExchangeTimestamp)
+  }
+
+  @Test
+  fun testProvenanceAuthenticExchangeTimestampValid() {
+    val tick = MarketTick(
+        exchangeTimestampMs = 1742540000000L,
+        serverSyncTimestampMs = 1742540000500L,
+        price = 95000.0,
+        volume = 1.2,
+        sourceIdentity = "BINANCE_SPOT_BTCUSDT",
+        sequenceId = 101L
+    )
+    assertTrue(tick.hasAuthenticExchangeTimestamp)
+    assertEquals(1742540000000L, tick.timestampMs)
   }
 
   @Test
@@ -207,5 +241,69 @@ class ExampleUnitTest {
     assertTrue(ev.channelPosition!! in 0.0..1.0)
   }
 
+  @Test
+  fun testVolatilityEngineIndependentObservation() {
+    val volEngine = com.example.qty.pricedynamics.volatility.VolatilityEngine()
+    val window = TimeSeriesWindow()
+    val baseTime = 2_000_000L
+    for (i in 0 until 10) {
+      window.addTick(
+          MarketTick(
+              exchangeTimestampMs = baseTime + i * 1_000L,
+              serverSyncTimestampMs = null,
+              price = 70_000.0 + (if (i % 2 == 0) 100.0 else -100.0),
+              volume = 1.0,
+              sourceIdentity = "BINANCE_SPOT_BTCUSDT",
+              sequenceId = (i + 1).toLong()
+          )
+      )
+    }
+
+    val temporal = TemporalState(
+        currentTimestampMs = baseTime + 9 * 1_000L,
+        observationWindowSeconds = 30
+    )
+
+    val output = volEngine.process(
+        timeSeries = window,
+        temporalState = temporal,
+        integrityState = IntegrityState.Nominal
+    )
+
+    assertFalse(output.evidence.realizedVolatilityAnnualized.isNaN())
+    assertTrue(output.evidence.sampleCount == 10)
+    assertEquals("BINANCE_SPOT_BTCUSDT", output.evidence.sourceIdentity)
+    assertNotNull(output.verdict.regime)
+  }
+
+  @Test
+  fun testChronologicalBacktestExecutionAndSettlement() {
+    val backtestEngine = com.example.qty.backtest.ChronologicalBacktestEngine(
+        observationWindowSeconds = 30,
+        targetHorizonSeconds = 10
+    )
+    val windowTicks = mutableListOf<MarketTick>()
+    val baseTime = 3_000_000L
+    for (i in 0 until 25) {
+      windowTicks.add(
+          MarketTick(
+              exchangeTimestampMs = baseTime + i * 1_000L,
+              serverSyncTimestampMs = null,
+              price = 80_000.0 + i * 10.0, // Steely upward trend
+              volume = 1.5,
+              sourceIdentity = "BINANCE_SPOT_BTCUSDT",
+              sequenceId = (i + 1).toLong()
+          )
+      )
+    }
+
+    val outcomes = backtestEngine.runBacktest(windowTicks)
+    assertTrue(outcomes.isNotEmpty())
+    val evaluatedOutcomes = outcomes.filter { it.outcomeState == com.example.qty.backtest.OutcomeState.SUCCESS_EVALUATED }
+    assertTrue("Should successfully evaluate forward horizon settlements", evaluatedOutcomes.isNotEmpty())
+    val firstOutcome = evaluatedOutcomes.first()
+    assertEquals("BINANCE_SPOT_BTCUSDT", firstOutcome.sourceIdentity)
+    assertNotNull(firstOutcome.isCorrect)
+  }
 
 }

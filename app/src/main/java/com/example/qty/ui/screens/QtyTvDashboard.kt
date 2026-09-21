@@ -160,9 +160,10 @@ fun QtyTvDashboard(
                 )
             }
 
-            // 6. ENGINE 2: VOLATILITY ENGINE CARD (Independent Volatility Evidence - Phase 1 unengaged)
+            // 6. ENGINE 2: VOLATILITY ENGINE CARD (Independent Volatility Evidence)
             item {
                 VolatilityEngineCard(
+                    output = uiState.volatilityOutput,
                     temporalState = uiState.temporalState
                 )
             }
@@ -170,7 +171,8 @@ fun QtyTvDashboard(
             // 7. Flow Pipeline Card: BTC State → Trend → Volatility → Combined Prototype Evidence → Prediction/Outcome
             item {
                 CombinedPrototypeEvidenceCard(
-                    output = uiState.trendOutput,
+                    trendOutput = uiState.trendOutput,
+                    volatilityOutput = uiState.volatilityOutput,
                     temporalState = uiState.temporalState
                 )
             }
